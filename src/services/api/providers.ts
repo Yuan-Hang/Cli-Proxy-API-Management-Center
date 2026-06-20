@@ -6,6 +6,7 @@ import { apiClient } from './client';
 import { isRecord } from '@/utils/helpers';
 import { normalizeOpenAIProvider, normalizeProviderKeyConfig } from './transformers';
 import type {
+  CommandAuthConfig,
   GeminiKeyConfig,
   OpenAIProviderConfig,
   ProviderKeyConfig,
@@ -63,6 +64,7 @@ const OPENAI_PROVIDER_FIELDS = [
   'models',
   'test-model',
   'disable-cooling',
+  'auth',
 ] as const;
 
 const MODEL_ALIAS_FIELDS = ['name', 'alias', 'priority', 'test-model', 'thinking'] as const;
@@ -287,6 +289,8 @@ const buildProviderDeleteQuery = (apiKey: string, baseUrl?: string) => {
   return `?${params.toString()}`;
 };
 
+const buildIndexDeleteQuery = (index: number) => `?index=${encodeURIComponent(String(index))}`;
+
 const serializeModelAliases = (models?: ModelAlias[], includeOpenAIFields = false) =>
   Array.isArray(models)
     ? models
@@ -320,8 +324,23 @@ const serializeApiKeyEntry = (entry: ApiKeyEntry) => {
   return payload;
 };
 
+const serializeCommandAuth = (auth?: CommandAuthConfig) => {
+  const command = auth?.command?.trim();
+  if (!command) return undefined;
+  const payload: Record<string, unknown> = { command };
+  if (auth?.args?.length) payload.args = auth.args;
+  if (auth?.timeoutMs !== undefined) payload['timeout-ms'] = auth.timeoutMs;
+  if (auth?.refreshIntervalMs !== undefined) {
+    payload['refresh-interval-ms'] = auth.refreshIntervalMs;
+  }
+  return payload;
+};
+
 const serializeProviderKey = (config: ProviderKeyConfig) => {
-  const payload: Record<string, unknown> = { 'api-key': config.apiKey };
+  const auth = serializeCommandAuth(config.auth);
+  const payload: Record<string, unknown> = {};
+  if (auth) payload.auth = auth;
+  else payload['api-key'] = config.apiKey;
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
@@ -410,13 +429,17 @@ const serializeGeminiKey = (config: GeminiKeyConfig) => {
 };
 
 const serializeOpenAIProvider = (provider: OpenAIProviderConfig) => {
+  const auth = serializeCommandAuth(provider.auth);
   const payload: Record<string, unknown> = {
     name: provider.name,
     'base-url': provider.baseUrl,
-    'api-key-entries': Array.isArray(provider.apiKeyEntries)
-      ? provider.apiKeyEntries.map((entry) => serializeApiKeyEntry(entry))
-      : [],
+    'api-key-entries': auth
+      ? []
+      : Array.isArray(provider.apiKeyEntries)
+        ? provider.apiKeyEntries.map((entry) => serializeApiKeyEntry(entry))
+        : [],
   };
+  if (auth) payload.auth = auth;
   if (provider.prefix?.trim()) payload.prefix = provider.prefix.trim();
   if (provider.disabled !== undefined) payload.disabled = provider.disabled;
   const headers = serializeHeaders(provider.headers);
@@ -487,8 +510,14 @@ export const providersApi = {
       )
     ),
 
-  deleteCodexConfig: (apiKey: string, baseUrl?: string) =>
-    apiClient.delete(`/codex-api-key${buildProviderDeleteQuery(apiKey, baseUrl)}`),
+  deleteCodexConfig: (apiKey: string, baseUrl?: string, index?: number) =>
+    apiClient.delete(
+      `/codex-api-key${
+        apiKey.trim()
+          ? buildProviderDeleteQuery(apiKey, baseUrl)
+          : buildIndexDeleteQuery(index ?? -1)
+      }`
+    ),
 
   createXAIConfig: (config: ProviderKeyConfig) =>
     mutateLatestProviderList('xai-api-key', (latestItems) =>

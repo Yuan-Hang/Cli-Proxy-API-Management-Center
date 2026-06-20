@@ -197,6 +197,15 @@ export interface CloakInput {
   cacheUserId: boolean;
 }
 
+export type ProviderAuthMode = 'apiKey' | 'command';
+
+export interface CommandAuthInput {
+  command: string;
+  argsText: string;
+  timeoutMs?: number;
+  refreshIntervalMs?: number;
+}
+
 export interface ProviderEntryFormInput {
   /** OpenAI 创建时只在 apiKeyEntries 中传 */
   apiKey: string;

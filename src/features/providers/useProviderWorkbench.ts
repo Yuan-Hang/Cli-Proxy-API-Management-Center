@@ -7,7 +7,13 @@ import {
   withDisableAllModelsRule,
   withoutDisableAllModelsRule,
 } from '@/components/providers/utils';
-import type { GeminiKeyConfig, ModelAlias, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
+import type {
+  CommandAuthConfig,
+  GeminiKeyConfig,
+  ModelAlias,
+  OpenAIProviderConfig,
+  ProviderKeyConfig,
+} from '@/types';
 import {
   apiKeyFunToResource,
   claudeApiToResource,
@@ -104,6 +110,28 @@ const parseTextList = (text: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const parseCommandArgs = (text: string): string[] =>
+  text
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const normalizePositiveNumber = (value: number | undefined): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+
+const buildCommandAuth = (input: ProviderEntryFormInput): CommandAuthConfig | undefined => {
+  const command = input.commandAuth?.command?.trim() ?? '';
+  if (!command) return undefined;
+  const args = parseCommandArgs(input.commandAuth?.argsText ?? '');
+  const auth: CommandAuthConfig = { command };
+  if (args.length) auth.args = args;
+  const timeoutMs = normalizePositiveNumber(input.commandAuth?.timeoutMs);
+  if (timeoutMs !== undefined) auth.timeoutMs = timeoutMs;
+  const refreshIntervalMs = normalizePositiveNumber(input.commandAuth?.refreshIntervalMs);
+  if (refreshIntervalMs !== undefined) auth.refreshIntervalMs = refreshIntervalMs;
+  return auth;
+};
+
 const headersFromEntries = (
   entries: Array<{ key: string; value: string }>
 ): Record<string, string> => {
@@ -178,9 +206,11 @@ const buildProviderKeyConfig = (
   const headers = headersFromEntries(input.headers);
   const models = buildModelAliases(input.models);
   const excluded = buildExcludedModels(input.excludedModelsText, input.disabled, brand);
+  const useCommandAuth = brand === 'codex' && input.authMode === 'command';
+  const commandAuth = useCommandAuth ? buildCommandAuth(input) : undefined;
   const apiKeyChanged = input.apiKey.trim().length > 0;
   const next: ProviderKeyConfig = {
-    apiKey: apiKeyChanged ? input.apiKey.trim() : (existing?.apiKey ?? ''),
+    apiKey: useCommandAuth ? '' : apiKeyChanged ? input.apiKey.trim() : (existing?.apiKey ?? ''),
     priority: input.priority,
     weight: input.weight,
     prefix: input.prefix.trim() || undefined,
@@ -248,6 +278,7 @@ const buildOpenAIConfig = (
     baseUrl: input.baseUrl.trim(),
     prefix: input.prefix.trim() || undefined,
     apiKeyEntries,
+    auth: commandAuth,
     disabled: input.disabled,
     disableCooling: input.disableCooling === true,
     headers: Object.keys(headers).length ? headers : undefined,
@@ -847,7 +878,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           const next = (config?.interactionsApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('interactions-api-key', next);
         } else if (sel.brand === 'codex') {
-          await providersApi.deleteCodexConfig(sel.apiKey, sel.baseUrl);
+          await providersApi.deleteCodexConfig(sel.apiKey, sel.baseUrl, sel.index);
           const next = (config?.codexApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('codex-api-key', next);
         } else if (sel.brand === 'xai') {
