@@ -103,6 +103,9 @@ const normalizeAuthIndex = (value: unknown): string | undefined => {
   return trimmed ? trimmed : undefined;
 };
 
+const normalizeAuthKey = (value: unknown): string | undefined =>
+  normalizeRecentRequestIdentity(value);
+
 const normalizePositiveNumber = (value: unknown): number | undefined => {
   if (value === undefined || value === null || String(value).trim() === '') return undefined;
   const parsed = Number(value);
@@ -136,6 +139,8 @@ const normalizeApiKeyEntry = (entry: unknown): ApiKeyEntry | null => {
   const proxyUrl = record?.['proxy-url'];
   const weight = readCredentialWeight(record?.weight);
   const authIndex = normalizeAuthIndex(record?.['auth-index']);
+  const authKey = normalizeAuthKey(record?.['auth-key'] ?? record?.auth_key);
+  const authSource = normalizeAuthKey(record?.['auth-source'] ?? record?.auth_source);
 
   const result: ApiKeyEntry = {
     apiKey: trimmed,
@@ -143,6 +148,8 @@ const normalizeApiKeyEntry = (entry: unknown): ApiKeyEntry | null => {
   };
   if (weight !== undefined) result.weight = weight;
   if (authIndex) result.authIndex = authIndex;
+  if (authKey) result.authKey = authKey;
+  if (authSource) result.authSource = authSource;
   return result;
 };
 
@@ -182,6 +189,10 @@ const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => 
   if (excludedModels.length) config.excludedModels = excludedModels;
   const authIndex = normalizeAuthIndex(record?.['auth-index']);
   if (authIndex) config.authIndex = authIndex;
+  const authKey = normalizeAuthKey(record?.['auth-key'] ?? record?.auth_key);
+  if (authKey) config.authKey = authKey;
+  const authSource = normalizeAuthKey(record?.['auth-source'] ?? record?.auth_source);
+  if (authSource) config.authSource = authSource;
 
   const cloakRaw = record?.cloak;
   if (isRecord(cloakRaw)) {
@@ -251,6 +262,10 @@ const normalizeGeminiKeyConfig = (item: unknown): GeminiKeyConfig | null => {
   if (excludedModels.length) config.excludedModels = excludedModels;
   const authIndex = normalizeAuthIndex(record?.['auth-index']);
   if (authIndex) config.authIndex = authIndex;
+  const authKey = normalizeAuthKey(record?.['auth-key'] ?? record?.auth_key);
+  if (authKey) config.authKey = authKey;
+  const authSource = normalizeAuthKey(record?.['auth-source'] ?? record?.auth_source);
+  if (authSource) config.authSource = authSource;
   return config;
 };
 

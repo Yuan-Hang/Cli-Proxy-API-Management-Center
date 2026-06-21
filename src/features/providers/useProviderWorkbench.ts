@@ -221,6 +221,8 @@ const buildProviderKeyConfig = (
     excludedModels: excluded,
     disableCooling: input.disableCooling === true,
     authIndex: existing?.authIndex,
+    authKey: existing?.authKey,
+    authSource: existing?.authSource,
   };
   if ((brand === 'codex' || brand === 'xai') && input.websockets !== undefined) {
     next.websockets = input.websockets;
