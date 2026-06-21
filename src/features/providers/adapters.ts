@@ -83,12 +83,11 @@ function providerKeyToResource(
   index: number
 ): ProviderResource {
   const apiKey = config.apiKey ?? '';
-  const commandAuth = brand === 'codex' ? (config as ProviderKeyConfig).auth?.command?.trim() : '';
+  const commandAuth = config.auth?.command?.trim() ?? '';
   const disabled = hasDisableAllModelsRule(config.excludedModels);
   const flags: ProviderResource['flags'] = {};
   if (brand === 'codex' || brand === 'xai') {
     flags.websockets = (config as ProviderKeyConfig).websockets === true;
-    flags.commandAuth = Boolean(commandAuth);
   }
   if (brand === 'claude' || brand === 'claudeApi') {
     const cloak = (config as ProviderKeyConfig).cloak;

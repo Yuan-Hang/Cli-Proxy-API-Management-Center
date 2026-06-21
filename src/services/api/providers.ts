@@ -21,6 +21,7 @@ const RESPONSE_ONLY_FIELDS = ['auth-index'] as const;
 
 const PROVIDER_COMMON_KEY_FIELDS = [
   'api-key',
+  'auth',
   'priority',
   'weight',
   'prefix',
@@ -43,6 +44,7 @@ const CLAUDE_KEY_FIELDS = [
 ] as const;
 const VERTEX_KEY_FIELDS = [
   'api-key',
+  'auth',
   'priority',
   'weight',
   'prefix',
@@ -394,7 +396,10 @@ const serializeVertexModelAliases = (models?: ModelAlias[]) =>
     : undefined;
 
 const serializeVertexKey = (config: ProviderKeyConfig) => {
-  const payload: Record<string, unknown> = { 'api-key': config.apiKey };
+  const auth = serializeCommandAuth(config.auth);
+  const payload: Record<string, unknown> = {};
+  if (auth) payload.auth = auth;
+  else payload['api-key'] = config.apiKey;
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
@@ -411,7 +416,10 @@ const serializeVertexKey = (config: ProviderKeyConfig) => {
 };
 
 const serializeGeminiKey = (config: GeminiKeyConfig) => {
-  const payload: Record<string, unknown> = { 'api-key': config.apiKey };
+  const auth = serializeCommandAuth(config.auth);
+  const payload: Record<string, unknown> = {};
+  if (auth) payload.auth = auth;
+  else payload['api-key'] = config.apiKey;
   if (config.priority !== undefined) payload.priority = config.priority;
   if (config.weight !== undefined) payload.weight = config.weight;
   if (config.prefix?.trim()) payload.prefix = config.prefix.trim();
@@ -470,8 +478,14 @@ export const providersApi = {
       )
     ),
 
-  deleteGeminiKey: (apiKey: string, baseUrl?: string) =>
-    apiClient.delete(`/gemini-api-key${buildProviderDeleteQuery(apiKey, baseUrl)}`),
+  deleteGeminiKey: (apiKey: string, baseUrl?: string, index?: number) =>
+    apiClient.delete(
+      `/gemini-api-key${
+        apiKey.trim()
+          ? buildProviderDeleteQuery(apiKey, baseUrl)
+          : buildIndexDeleteQuery(index ?? -1)
+      }`
+    ),
 
   createInteractionsKey: (config: GeminiKeyConfig) =>
     mutateLatestProviderList('interactions-api-key', (latestItems) =>
@@ -556,8 +570,14 @@ export const providersApi = {
       )
     ),
 
-  deleteClaudeConfig: (apiKey: string, baseUrl?: string) =>
-    apiClient.delete(`/claude-api-key${buildProviderDeleteQuery(apiKey, baseUrl)}`),
+  deleteClaudeConfig: (apiKey: string, baseUrl?: string, index?: number) =>
+    apiClient.delete(
+      `/claude-api-key${
+        apiKey.trim()
+          ? buildProviderDeleteQuery(apiKey, baseUrl)
+          : buildIndexDeleteQuery(index ?? -1)
+      }`
+    ),
 
   async getVertexConfigs(): Promise<ProviderKeyConfig[]> {
     const data = await apiClient.get('/vertex-api-key');
@@ -584,8 +604,14 @@ export const providersApi = {
       )
     ),
 
-  deleteVertexConfig: (apiKey: string, baseUrl?: string) =>
-    apiClient.delete(`/vertex-api-key${buildProviderDeleteQuery(apiKey, baseUrl)}`),
+  deleteVertexConfig: (apiKey: string, baseUrl?: string, index?: number) =>
+    apiClient.delete(
+      `/vertex-api-key${
+        apiKey.trim()
+          ? buildProviderDeleteQuery(apiKey, baseUrl)
+          : buildIndexDeleteQuery(index ?? -1)
+      }`
+    ),
 
   async getOpenAIProviders(): Promise<OpenAIProviderConfig[]> {
     const data = await apiClient.get('/openai-compatibility');
