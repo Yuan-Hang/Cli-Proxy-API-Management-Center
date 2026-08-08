@@ -23,7 +23,13 @@ export type ProviderBrand =
   | 'kimi';
 
 export type SponsorProviderBrand =
-  'apikeyFun' | 'code0' | 'fennoAI' | 'qiniuCloud' | 'lmuAI' | 'infistar' | 'kimi';
+  | 'apikeyFun'
+  | 'code0'
+  | 'fennoAI'
+  | 'qiniuCloud'
+  | 'lmuAI'
+  | 'infistar'
+  | 'kimi';
 
 export const PROVIDER_SORT_BY_VALUES = ['name', 'priority', 'recent-success'] as const;
 export type ProviderSortBy = (typeof PROVIDER_SORT_BY_VALUES)[number];
@@ -93,6 +99,7 @@ export type ProviderResourceSelector =
 export interface ProviderResourceFlags {
   cloakEnabled?: boolean;
   websockets?: boolean;
+  commandAuth?: boolean;
   protocols?: string[];
 }
 
@@ -222,6 +229,8 @@ export interface ProviderEntryFormInput {
   disableCooling?: boolean;
   priority?: number;
   weight?: number;
+  authMode?: ProviderAuthMode;
+  commandAuth?: CommandAuthInput;
 
   /** 高级折叠区 */
   models: ModelEntryInput[];

@@ -60,6 +60,22 @@ const emptyApiKeyEntry = (): ApiKeyEntryInput => ({
   proxyUrl: '',
   weight: undefined,
 });
+const emptyCommandAuth = (): CommandAuthInput => ({
+  command: '',
+  argsText: '',
+});
+
+const supportsCommandAuthBrand = (brand: ProviderBrand) =>
+  brand === 'gemini' ||
+  brand === 'interactions' ||
+  brand === 'codex' ||
+  brand === 'xai' ||
+  brand === 'claude' ||
+  brand === 'claudeApi' ||
+  brand === 'vertex' ||
+  brand === 'openaiCompatibility';
+
+const formatCommandAuthArgs = (args?: string[]): string => (args ?? []).join('\n');
 const XAI_API_BASE_URL = 'https://api.x.ai/v1';
 
 const stripDisableAllRule = (list?: string[]): string[] =>
@@ -91,6 +107,8 @@ function buildInitialForm(
       disableCooling: false,
       priority: undefined,
       weight: undefined,
+      authMode: supportsCommandAuth ? 'apiKey' : undefined,
+      commandAuth: supportsCommandAuth ? emptyCommandAuth() : undefined,
       models: [emptyModel()],
       headers: [emptyHeader()],
       excludedModelsText: '',
@@ -180,6 +198,17 @@ function buildInitialForm(
     disableCooling: cfg.disableCooling === true,
     priority: cfg.priority,
     weight: cfg.weight,
+    authMode: supportsCommandAuthBrand(brand) ? (commandAuth ? 'command' : 'apiKey') : undefined,
+    commandAuth: supportsCommandAuthBrand(brand)
+      ? commandAuth
+        ? {
+            command: commandAuth.command,
+            argsText: formatCommandAuthArgs(commandAuth.args),
+            timeoutMs: commandAuth.timeoutMs,
+            refreshIntervalMs: commandAuth.refreshIntervalMs,
+          }
+        : emptyCommandAuth()
+      : undefined,
     models: cfg.models?.length
       ? cfg.models.map((m) => ({
           name: m.name,

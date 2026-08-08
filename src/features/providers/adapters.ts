@@ -89,6 +89,7 @@ function providerKeyToResource(
   if (brand === 'codex' || brand === 'xai') {
     flags.websockets = (config as ProviderKeyConfig).websockets === true;
   }
+  flags.commandAuth = Boolean(commandAuth);
   if (brand === 'claude' || brand === 'claudeApi') {
     const cloak = (config as ProviderKeyConfig).cloak;
     flags.cloakEnabled = Boolean(cloak?.mode?.trim());
@@ -191,7 +192,7 @@ export function openaiToResource(config: OpenAIProviderConfig, index: number): P
     excludedModelCount: 0,
     apiKeyEntryCount: commandAuth ? 0 : (config.apiKeyEntries?.length ?? 0),
     disabled: config.disabled === true,
-    flags: {},
+    flags: { commandAuth: Boolean(commandAuth) },
     selector: { brand: 'openaiCompatibility', name, index: sourceIndex },
     raw: config,
   };
@@ -295,6 +296,8 @@ function sponsorRawToResource(
     apiKeyPreview: apiKey ? maskApiKey(apiKey) : null,
     apiKey: apiKey || null,
     authIndex: null,
+    authKey: null,
+    authSource: null,
     baseUrl: [protocolUrls.openai, protocolUrls.anthropic, protocolUrls.gemini]
       .filter(Boolean)
       .join(' / '),

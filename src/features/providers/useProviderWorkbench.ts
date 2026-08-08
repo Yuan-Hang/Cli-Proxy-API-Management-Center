@@ -224,6 +224,9 @@ const buildProviderKeyConfig = (
     authKey: existing?.authKey,
     authSource: existing?.authSource,
   };
+  if (commandAuth) {
+    next.auth = commandAuth;
+  }
   if ((brand === 'codex' || brand === 'xai') && input.websockets !== undefined) {
     next.websockets = input.websockets;
   }
@@ -260,19 +263,22 @@ const buildOpenAIConfig = (
 ): OpenAIProviderConfig => {
   const headers = headersFromEntries(input.headers);
   const models = buildModelAliases(input.models, true);
-  const apiKeyEntries =
-    input.apiKeyEntries
-      ?.map((entry, index) => {
-        const fallbackApiKey =
-          entry.existingApiKey?.trim() || existing?.apiKeyEntries?.[index]?.apiKey?.trim() || '';
-        return {
-          apiKey: entry.apiKey.trim() || fallbackApiKey,
-          proxyUrl: entry.proxyUrl.trim() || undefined,
-          weight: entry.weight,
-          authIndex: entry.authIndex?.trim() || undefined,
-        };
-      })
-      .filter((entry) => entry.apiKey) ?? [];
+  const useCommandAuth = input.authMode === 'command';
+  const commandAuth = useCommandAuth ? buildCommandAuth(input) : undefined;
+  const apiKeyEntries = useCommandAuth
+    ? []
+    : (input.apiKeyEntries
+        ?.map((entry, index) => {
+          const fallbackApiKey =
+            entry.existingApiKey?.trim() || existing?.apiKeyEntries?.[index]?.apiKey?.trim() || '';
+          return {
+            apiKey: entry.apiKey.trim() || fallbackApiKey,
+            proxyUrl: entry.proxyUrl.trim() || undefined,
+            weight: entry.weight,
+            authIndex: entry.authIndex?.trim() || undefined,
+          };
+        })
+        .filter((entry) => entry.apiKey) ?? []);
 
   return {
     ...(existing ?? {}),
@@ -798,48 +804,55 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           await providersApi.updateGeminiKey(
             selector.apiKey,
             selector.baseUrl,
-            buildProviderKeyConfig('gemini', input, existing) as GeminiKeyConfig
+            buildProviderKeyConfig('gemini', input, existing) as GeminiKeyConfig,
+            selector.index
           );
         } else if (brand === 'interactions' && selector.brand === 'interactions') {
           const existing = resource.raw as GeminiKeyConfig;
           await providersApi.updateInteractionsKey(
             selector.apiKey,
             selector.baseUrl,
-            buildProviderKeyConfig('interactions', input, existing) as GeminiKeyConfig
+            buildProviderKeyConfig('interactions', input, existing) as GeminiKeyConfig,
+            selector.index
           );
         } else if (brand === 'codex' && selector.brand === 'codex') {
           const existing = resource.raw as ProviderKeyConfig;
           await providersApi.updateCodexConfig(
             selector.apiKey,
             selector.baseUrl,
-            buildProviderKeyConfig('codex', input, existing) as ProviderKeyConfig
+            buildProviderKeyConfig('codex', input, existing) as ProviderKeyConfig,
+            selector.index
           );
         } else if (brand === 'xai' && selector.brand === 'xai') {
           const existing = resource.raw as ProviderKeyConfig;
           await providersApi.updateXAIConfig(
             selector.apiKey,
             selector.baseUrl,
-            buildProviderKeyConfig('xai', input, existing) as ProviderKeyConfig
+            buildProviderKeyConfig('xai', input, existing) as ProviderKeyConfig,
+            selector.index
           );
         } else if (brand === 'claude' && selector.brand === 'claude') {
           const existing = resource.raw as ProviderKeyConfig;
           await providersApi.updateClaudeConfig(
             selector.apiKey,
             selector.baseUrl,
-            buildProviderKeyConfig('claude', input, existing) as ProviderKeyConfig
+            buildProviderKeyConfig('claude', input, existing) as ProviderKeyConfig,
+            selector.index
           );
         } else if (brand === 'claudeApi' && selector.brand === 'claudeApi') {
           await providersApi.updateClaudeConfig(
             selector.apiKey,
             selector.baseUrl,
-            buildClaudeApiConfig(input, resource.raw as ProviderKeyConfig)
+            buildClaudeApiConfig(input, resource.raw as ProviderKeyConfig),
+            selector.index
           );
         } else if (brand === 'vertex' && selector.brand === 'vertex') {
           const existing = resource.raw as ProviderKeyConfig;
           await providersApi.updateVertexConfig(
             selector.apiKey,
             selector.baseUrl,
-            buildProviderKeyConfig('vertex', input, existing) as ProviderKeyConfig
+            buildProviderKeyConfig('vertex', input, existing) as ProviderKeyConfig,
+            selector.index
           );
         } else if (brand === 'openaiCompatibility' && selector.brand === 'openaiCompatibility') {
           await providersApi.updateOpenAIProvider(
@@ -876,7 +889,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           const next = (config?.geminiApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('gemini-api-key', next);
         } else if (sel.brand === 'interactions') {
-          await providersApi.deleteInteractionsKey(sel.apiKey, sel.baseUrl);
+          await providersApi.deleteInteractionsKey(sel.apiKey, sel.baseUrl, sel.index);
           const next = (config?.interactionsApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('interactions-api-key', next);
         } else if (sel.brand === 'codex') {
@@ -884,7 +897,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           const next = (config?.codexApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('codex-api-key', next);
         } else if (sel.brand === 'xai') {
-          await providersApi.deleteXAIConfig(sel.apiKey, sel.baseUrl);
+          await providersApi.deleteXAIConfig(sel.apiKey, sel.baseUrl, sel.index);
           const next = (config?.xaiApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('xai-api-key', next);
         } else if (sel.brand === 'claude') {
@@ -892,7 +905,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           const next = (config?.claudeApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('claude-api-key', next);
         } else if (sel.brand === 'claudeApi') {
-          await providersApi.deleteClaudeConfig(sel.apiKey, sel.baseUrl);
+          await providersApi.deleteClaudeConfig(sel.apiKey, sel.baseUrl, sel.index);
           const next = (config?.claudeApiKeys ?? []).filter((_, i) => i !== sel.index);
           updateConfigValue('claude-api-key', next);
         } else if (sel.brand === 'vertex') {
@@ -952,19 +965,29 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           const excluded = disabled
             ? withDisableAllModelsRule(current.excludedModels)
             : withoutDisableAllModelsRule(current.excludedModels);
-          await providersApi.updateGeminiKey(selector.apiKey, selector.baseUrl, {
-            ...current,
-            excludedModels: excluded,
-          });
+          await providersApi.updateGeminiKey(
+            selector.apiKey,
+            selector.baseUrl,
+            {
+              ...current,
+              excludedModels: excluded,
+            },
+            selector.index
+          );
         } else if (brand === 'interactions' && selector.brand === 'interactions') {
           const current = resource.raw as GeminiKeyConfig;
           const excluded = disabled
             ? withDisableAllModelsRule(current.excludedModels)
             : withoutDisableAllModelsRule(current.excludedModels);
-          await providersApi.updateInteractionsKey(selector.apiKey, selector.baseUrl, {
-            ...current,
-            excludedModels: excluded,
-          });
+          await providersApi.updateInteractionsKey(
+            selector.apiKey,
+            selector.baseUrl,
+            {
+              ...current,
+              excludedModels: excluded,
+            },
+            selector.index
+          );
         } else if (
           (brand === 'codex' && selector.brand === 'codex') ||
           (brand === 'xai' && selector.brand === 'xai') ||
@@ -978,13 +1001,33 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
             : withoutDisableAllModelsRule(current.excludedModels);
           const next = { ...current, excludedModels: excluded };
           if (selector.brand === 'codex') {
-            await providersApi.updateCodexConfig(selector.apiKey, selector.baseUrl, next);
+            await providersApi.updateCodexConfig(
+              selector.apiKey,
+              selector.baseUrl,
+              next,
+              selector.index
+            );
           } else if (selector.brand === 'xai') {
-            await providersApi.updateXAIConfig(selector.apiKey, selector.baseUrl, next);
+            await providersApi.updateXAIConfig(
+              selector.apiKey,
+              selector.baseUrl,
+              next,
+              selector.index
+            );
           } else if (selector.brand === 'claude' || selector.brand === 'claudeApi') {
-            await providersApi.updateClaudeConfig(selector.apiKey, selector.baseUrl, next);
+            await providersApi.updateClaudeConfig(
+              selector.apiKey,
+              selector.baseUrl,
+              next,
+              selector.index
+            );
           } else if (selector.brand === 'vertex') {
-            await providersApi.updateVertexConfig(selector.apiKey, selector.baseUrl, next);
+            await providersApi.updateVertexConfig(
+              selector.apiKey,
+              selector.baseUrl,
+              next,
+              selector.index
+            );
           }
         } else if (brand === 'openaiCompatibility' && selector.brand === 'openaiCompatibility') {
           await providersApi.updateOpenAIProviderDisabled(selector.index, disabled);

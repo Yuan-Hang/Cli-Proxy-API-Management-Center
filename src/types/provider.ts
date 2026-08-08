@@ -85,6 +85,8 @@ export interface OpenAIProviderConfig {
   testModel?: string;
   disableCooling?: boolean;
   authIndex?: string;
+  authKey?: string;
+  authSource?: string;
   /** Original index in the backend openai-compatibility array. */
   sourceIndex?: number;
   [key: string]: unknown;

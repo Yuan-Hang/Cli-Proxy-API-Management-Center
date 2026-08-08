@@ -11,6 +11,7 @@ import type { Config } from '@/types/config';
 import { buildHeaderObject } from '@/utils/headers';
 import { isRecord } from '@/utils/helpers';
 import { readCredentialWeight } from '@/utils/credentialWeight';
+import { normalizeRecentRequestIdentity } from '@/utils/recentRequests';
 
 const normalizeBoolean = (value: unknown): boolean | undefined =>
   typeof value === 'boolean' ? value : undefined;
@@ -161,7 +162,8 @@ const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => 
   const auth = normalizeCommandAuth(record?.auth);
   if (!trimmed && !auth) return null;
 
-  const config: ProviderKeyConfig = { apiKey: trimmed };
+  const config: ProviderKeyConfig = { apiKey: auth ? '' : trimmed };
+  if (auth) config.auth = auth;
   const weight = readCredentialWeight(record?.weight);
   if (weight !== undefined) config.weight = weight;
   const priority = record?.priority;
@@ -236,7 +238,8 @@ const normalizeGeminiKeyConfig = (item: unknown): GeminiKeyConfig | null => {
   const auth = normalizeCommandAuth(record?.auth);
   if (!trimmed && !auth) return null;
 
-  const config: GeminiKeyConfig = { apiKey: trimmed };
+  const config: GeminiKeyConfig = { apiKey: auth ? '' : trimmed };
+  if (auth) config.auth = auth;
   const weight = readCredentialWeight(record?.weight);
   if (weight !== undefined) config.weight = weight;
   const priority = record?.priority;
@@ -309,6 +312,10 @@ const normalizeOpenAIProvider = (
   if (testModel) result.testModel = String(testModel);
   const authIndex = normalizeAuthIndex(provider['auth-index']);
   if (authIndex) result.authIndex = authIndex;
+  const authKey = normalizeAuthKey(provider['auth-key'] ?? provider.auth_key);
+  if (authKey) result.authKey = authKey;
+  const authSource = normalizeAuthKey(provider['auth-source'] ?? provider.auth_source);
+  if (authSource) result.authSource = authSource;
   if (sourceIndex !== undefined) result.sourceIndex = sourceIndex;
   return result;
 };
