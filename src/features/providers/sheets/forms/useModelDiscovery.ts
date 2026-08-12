@@ -26,6 +26,7 @@ export interface UseModelDiscoveryArgs {
   apiKey?: string;
   fallbackApiKey?: string;
   authIndex?: string;
+  commandAuth?: boolean;
 }
 
 export interface UseModelDiscoveryResult {
@@ -39,7 +40,16 @@ export interface UseModelDiscoveryResult {
 }
 
 export function useModelDiscovery(args: UseModelDiscoveryArgs): UseModelDiscoveryResult {
-  const { brand, baseUrl, formHeaders, apiKeyEntries, apiKey, fallbackApiKey, authIndex } = args;
+  const {
+    brand,
+    baseUrl,
+    formHeaders,
+    apiKeyEntries,
+    apiKey,
+    fallbackApiKey,
+    authIndex,
+    commandAuth = false,
+  } = args;
 
   const available = isModelDiscoveryBrand(brand);
   const [loading, setLoading] = useState(false);
@@ -77,7 +87,8 @@ export function useModelDiscovery(args: UseModelDiscoveryArgs): UseModelDiscover
           baseUrl,
           key,
           baseHeaders,
-          resolvedAuthIndex
+          resolvedAuthIndex,
+          commandAuth
         );
       } else if (brand === 'openaiCompatibility') {
         const firstEntry = (apiKeyEntries ?? []).find(
@@ -114,7 +125,17 @@ export function useModelDiscovery(args: UseModelDiscoveryArgs): UseModelDiscover
     } finally {
       setLoading(false);
     }
-  }, [available, apiKey, apiKeyEntries, authIndex, baseUrl, brand, fallbackApiKey, formHeaders]);
+  }, [
+    available,
+    apiKey,
+    apiKeyEntries,
+    authIndex,
+    baseUrl,
+    brand,
+    commandAuth,
+    fallbackApiKey,
+    formHeaders,
+  ]);
 
   const reset = useCallback(() => {
     setModels([]);
@@ -133,10 +154,11 @@ export function useModelDiscovery(args: UseModelDiscoveryArgs): UseModelDiscover
       apiKey ?? '',
       fallbackApiKey ?? '',
       authIndex ?? '',
+      commandAuth ? 'command' : 'api-key',
       headerSig,
       entriesSig,
     ].join('||');
-  }, [apiKey, apiKeyEntries, authIndex, baseUrl, fallbackApiKey, formHeaders]);
+  }, [apiKey, apiKeyEntries, authIndex, baseUrl, commandAuth, fallbackApiKey, formHeaders]);
 
   const lastSignatureRef = useRef(inputSignature);
   useEffect(() => {

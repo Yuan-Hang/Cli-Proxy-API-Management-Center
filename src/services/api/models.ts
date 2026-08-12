@@ -46,9 +46,9 @@ const buildV1ModelsEndpoint = (baseUrl: string): string => {
 const buildClaudeModelsEndpoint = (baseUrl: string): string => {
   const normalized = normalizeApiBase(baseUrl);
   const fallback = normalized || DEFAULT_CLAUDE_BASE_URL;
-  let trimmed = fallback.replace(/\/+$/g, '');
-  trimmed = trimmed.replace(/\/v1\/models$/i, '');
-  trimmed = trimmed.replace(/\/v1(?:\/.*)?$/i, '');
+  const trimmed = fallback.replace(/\/+$/g, '');
+  const versioned = trimmed.match(/^(.*\/v\d+(?:beta)?)(?:\/(?:models|messages))?$/i);
+  if (versioned) return `${versioned[1]}/models`;
   return `${trimmed}/v1/models`;
 };
 
@@ -179,14 +179,15 @@ export const modelsApi = {
   },
 
   /**
-   * Fetch Claude models from /v1/models via api-call.
-   * Anthropic requires `x-api-key` and `anthropic-version` headers.
+   * Fetch Claude models from the configured version's /models via api-call.
+   * Static Anthropic credentials use `x-api-key`; command auth uses bearer tokens.
    */
   async fetchClaudeModelsViaApiCall(
     baseUrl: string,
     apiKey?: string,
     headers: Record<string, string> = {},
-    authIndex?: string
+    authIndex?: string,
+    commandAuth = false
   ) {
     const endpoint = buildClaudeModelsEndpoint(baseUrl);
     if (!endpoint) {
@@ -195,15 +196,21 @@ export const modelsApi = {
 
     const trimmedAuthIndex = authIndex?.trim() || undefined;
     const resolvedHeaders = { ...headers };
-    let resolvedApiKey = String(apiKey ?? '').trim();
-    if (!resolvedApiKey && !hasHeader(resolvedHeaders, 'x-api-key')) {
-      resolvedApiKey = resolveBearerTokenFromAuthorization(resolvedHeaders);
-    }
+    if (commandAuth) {
+      if (trimmedAuthIndex && !hasHeader(resolvedHeaders, 'authorization')) {
+        resolvedHeaders.Authorization = 'Bearer $TOKEN$';
+      }
+    } else {
+      let resolvedApiKey = String(apiKey ?? '').trim();
+      if (!resolvedApiKey && !hasHeader(resolvedHeaders, 'x-api-key')) {
+        resolvedApiKey = resolveBearerTokenFromAuthorization(resolvedHeaders);
+      }
 
-    if (resolvedApiKey && !hasHeader(resolvedHeaders, 'x-api-key')) {
-      resolvedHeaders['x-api-key'] = resolvedApiKey;
-    } else if (trimmedAuthIndex && !hasHeader(resolvedHeaders, 'x-api-key')) {
-      resolvedHeaders['x-api-key'] = '$TOKEN$';
+      if (resolvedApiKey && !hasHeader(resolvedHeaders, 'x-api-key')) {
+        resolvedHeaders['x-api-key'] = resolvedApiKey;
+      } else if (trimmedAuthIndex && !hasHeader(resolvedHeaders, 'x-api-key')) {
+        resolvedHeaders['x-api-key'] = '$TOKEN$';
+      }
     }
     if (!hasHeader(resolvedHeaders, 'anthropic-version')) {
       resolvedHeaders['anthropic-version'] = DEFAULT_ANTHROPIC_VERSION;

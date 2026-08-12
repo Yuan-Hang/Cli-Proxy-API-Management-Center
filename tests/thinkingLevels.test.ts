@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildThinkingFromLevels,
   readThinkingLevels,
+  stripThinkingSuffix,
   THINKING_LEVELS,
 } from '../src/features/providers/thinkingLevels';
 
@@ -34,5 +35,11 @@ describe('standard thinking level selector', () => {
     expect(buildThinkingFromLevels(['auto', 'high', 'none', 'low'])).toEqual({
       levels: ['low', 'high', 'none', 'auto'],
     });
+  });
+
+  test('strips a model suffix before probing the upstream directly', () => {
+    expect(stripThinkingSuffix('aiden-d1-48(xhigh)')).toBe('aiden-d1-48');
+    expect(stripThinkingSuffix('aiden-d1-48')).toBe('aiden-d1-48');
+    expect(stripThinkingSuffix('model(high')).toBe('model(high');
   });
 });

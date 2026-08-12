@@ -12,6 +12,7 @@ import {
 import { buildHeaderObject, hasHeader } from '@/utils/headers';
 import { getErrorMessage } from '@/utils/helpers';
 import type { ApiKeyEntryInput, ModelEntryInput, ProviderBrand } from '../../types';
+import { stripThinkingSuffix } from '../../thinkingLevels';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_ANTHROPIC_VERSION = '2023-06-01';
@@ -64,6 +65,7 @@ export interface UseConnectivityTestArgs {
   apiKey?: string;
   fallbackApiKey?: string;
   authIndex?: string;
+  commandAuth?: boolean;
 }
 
 export interface ConnectivityErrorMessages {
@@ -102,6 +104,7 @@ export function useConnectivityTest(
     apiKey,
     fallbackApiKey,
     authIndex,
+    commandAuth = false,
   } = args;
 
   const entriesCount = apiKeyEntries?.length ?? 0;
@@ -157,10 +160,20 @@ export function useConnectivityTest(
       apiKey ?? '',
       fallbackApiKey ?? '',
       authIndex ?? '',
+      commandAuth ? 'command' : 'api-key',
       h,
       m,
     ].join('||');
-  }, [apiKey, authIndex, baseUrl, fallbackApiKey, testModel, formHeaders, models]);
+  }, [
+    apiKey,
+    authIndex,
+    baseUrl,
+    commandAuth,
+    fallbackApiKey,
+    testModel,
+    formHeaders,
+    models,
+  ]);
 
   const lastSignatureRef = useRef(signature);
   useEffect(() => {
@@ -448,7 +461,7 @@ export function useConnectivityTest(
       setClaudeStatus({ state: 'error', message: messages.endpointInvalid });
       return;
     }
-    const model = pickModel(testModel, models);
+    const model = stripThinkingSuffix(pickModel(testModel, models));
     if (!model) {
       setClaudeStatus({ state: 'error', message: messages.modelRequired });
       return;
@@ -459,10 +472,11 @@ export function useConnectivityTest(
     const persistedKey = (fallbackApiKey ?? '').trim();
     const headerKey = resolveBearerToken(customHeaders);
     const hasApiKeyHeader = hasHeader(customHeaders, 'x-api-key');
+    const hasAuthorizationHeader = hasHeader(customHeaders, 'authorization');
     const resolvedKey = explicitKey || persistedKey || headerKey;
     const resolvedAuthIndex = (authIndex ?? '').trim() || undefined;
 
-    if (!resolvedKey && !hasApiKeyHeader && !resolvedAuthIndex) {
+    if (!resolvedKey && !hasApiKeyHeader && !hasAuthorizationHeader && !resolvedAuthIndex) {
       setClaudeStatus({ state: 'error', message: messages.apiKeyRequired });
       return;
     }
@@ -474,7 +488,11 @@ export function useConnectivityTest(
     if (!hasHeader(headerObj, 'anthropic-version')) {
       headerObj['anthropic-version'] = DEFAULT_ANTHROPIC_VERSION;
     }
-    if (!hasApiKeyHeader && resolvedKey) {
+    if (commandAuth) {
+      if (!hasAuthorizationHeader && resolvedAuthIndex) {
+        headerObj.Authorization = 'Bearer $TOKEN$';
+      }
+    } else if (!hasApiKeyHeader && resolvedKey) {
       headerObj['x-api-key'] = resolvedKey;
     } else if (!hasApiKeyHeader && resolvedAuthIndex) {
       headerObj['x-api-key'] = '$TOKEN$';
@@ -509,7 +527,18 @@ export function useConnectivityTest(
     } finally {
       setInFlight((n) => n - 1);
     }
-  }, [apiKey, authIndex, baseUrl, brand, fallbackApiKey, formHeaders, messages, models, testModel]);
+  }, [
+    apiKey,
+    authIndex,
+    baseUrl,
+    brand,
+    commandAuth,
+    fallbackApiKey,
+    formHeaders,
+    messages,
+    models,
+    testModel,
+  ]);
 
   return {
     openaiStatuses,

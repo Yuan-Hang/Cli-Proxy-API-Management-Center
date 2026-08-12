@@ -289,6 +289,8 @@ export function BaseProviderForm({
     if (mode !== 'edit' || !resource) return '';
     return (resource.raw as { authIndex?: string } | undefined)?.authIndex ?? '';
   }, [mode, resource]);
+  const supportsCommandAuth = supportsCommandAuthBrand(brand);
+  const commandAuthMode = supportsCommandAuth && form.authMode === 'command';
 
   const connectivityMessages = useMemo<ConnectivityErrorMessages>(
     () => ({
@@ -313,6 +315,7 @@ export function BaseProviderForm({
       apiKey: form.apiKey,
       fallbackApiKey,
       authIndex: fallbackAuthIndex,
+      commandAuth: commandAuthMode,
     },
     connectivityMessages
   );
@@ -325,6 +328,7 @@ export function BaseProviderForm({
     apiKey: form.apiKey,
     fallbackApiKey,
     authIndex: fallbackAuthIndex,
+    commandAuth: commandAuthMode,
   });
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
 
@@ -537,8 +541,6 @@ export function BaseProviderForm({
         ? 'unavailable'
         : 'ready';
   const actualApiKeyEntries = form.apiKeyEntries ?? [];
-  const supportsCommandAuth = supportsCommandAuthBrand(brand);
-  const commandAuthMode = supportsCommandAuth && form.authMode === 'command';
   const supportsDisableCooling =
     brand === 'gemini' ||
     brand === 'interactions' ||
@@ -863,7 +865,7 @@ export function BaseProviderForm({
               disabled={mutating}
               ariaLabel={t('providersPage.form.testModel')}
             />
-            {singleConnectivity && !commandAuthMode ? (
+            {singleConnectivity ? (
               <div className={styles.connectivityRow}>
                 <button
                   type="button"
@@ -886,7 +888,7 @@ export function BaseProviderForm({
                 ) : null}
               </div>
             ) : null}
-            {!commandAuthMode && singleConnectivity?.status.state === 'error' ? (
+            {singleConnectivity?.status.state === 'error' ? (
               <div className={styles.connectivityError}>{singleConnectivity.status.message}</div>
             ) : null}
           </div>

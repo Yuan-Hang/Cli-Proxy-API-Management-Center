@@ -11,6 +11,13 @@ export const THINKING_LEVELS = [
 
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
+/** Match the backend's model(value) parser before probing an upstream directly. */
+export const stripThinkingSuffix = (model: string): string => {
+  const lastOpen = model.lastIndexOf('(');
+  if (lastOpen < 0 || !model.endsWith(')')) return model;
+  return model.slice(0, lastOpen).trim();
+};
+
 const THINKING_LEVEL_SET = new Set<string>(THINKING_LEVELS);
 const SERIALIZED_LEVEL_ORDER: readonly ThinkingLevel[] = [
   'minimal',
